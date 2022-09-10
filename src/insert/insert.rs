@@ -121,7 +121,7 @@ impl<'a> Insert<'a> {
   /// FROM users_bk
   /// WHERE active = true
   /// ```
-  pub fn select(mut self, select: Select<'a>) -> Self {
+  pub fn select(mut self, select: Select) -> Self {
     self._select = Some(select);
     self
   }

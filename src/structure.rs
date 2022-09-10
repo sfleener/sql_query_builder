@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 #[cfg(feature = "postgresql")]
 pub enum Combinator {
   Except,
@@ -52,7 +54,7 @@ pub struct Insert<'a> {
   pub(crate) _raw_after: Vec<(InsertClause, String)>,
   pub(crate) _raw_before: Vec<(InsertClause, String)>,
   pub(crate) _raw: Vec<String>,
-  pub(crate) _select: Option<Select<'a>>,
+  pub(crate) _select: Option<Select>,
   pub(crate) _values: Vec<String>,
 
   #[cfg(feature = "postgresql")]
@@ -89,13 +91,13 @@ pub enum InsertClause {
 
 /// Builder to contruct a [Select] command
 #[derive(Default, Clone)]
-pub struct Select<'a> {
+pub struct Select {
   pub(crate) _from: Vec<String>,
   pub(crate) _group_by: Vec<String>,
   pub(crate) _having: Vec<String>,
   pub(crate) _join: Vec<String>,
-  pub(crate) _limit: &'a str,
-  pub(crate) _offset: &'a str,
+  pub(crate) _limit: Option<u64>,
+  pub(crate) _offset: Option<u64>,
   pub(crate) _order_by: Vec<String>,
   pub(crate) _raw_after: Vec<(SelectClause, String)>,
   pub(crate) _raw_before: Vec<(SelectClause, String)>,
@@ -110,7 +112,7 @@ pub struct Select<'a> {
   #[cfg(feature = "postgresql")]
   pub(crate) _union: Vec<Self>,
   #[cfg(feature = "postgresql")]
-  pub(crate) _with: Vec<(&'a str, std::sync::Arc<dyn crate::behavior::WithQuery>)>,
+  pub(crate) _with: Vec<(String, std::sync::Arc<dyn crate::behavior::WithQuery>)>,
 }
 
 /// All available clauses to be used in `raw_before` and `raw_after` methods on [Select] builder

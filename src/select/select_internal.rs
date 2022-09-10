@@ -4,9 +4,9 @@ use crate::{
   structure::{Select, SelectClause},
 };
 
-impl<'a> ConcatMethods<'a, SelectClause> for Select<'_> {}
+impl<'a> ConcatMethods<'a, SelectClause> for Select {}
 
-impl Concat for Select<'_> {
+impl Concat for Select {
   fn concat(&self, fmts: &fmt::Formatter) -> String {
     let mut query = "".to_owned();
 
@@ -57,7 +57,7 @@ impl Concat for Select<'_> {
   }
 }
 
-impl Select<'_> {
+impl Select {
   #[cfg(feature = "postgresql")]
   fn concat_combinator(
     &self,
@@ -165,12 +165,7 @@ impl Select<'_> {
 
   fn concat_limit(&self, query: String, fmts: &fmt::Formatter) -> String {
     let fmt::Formatter { lb, space, .. } = fmts;
-    let sql = if self._limit.is_empty() == false {
-      let count = self._limit;
-      format!("LIMIT{space}{count}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
+    let sql = self._limit.map(|limit| format!("LIMIT{space}{limit}{space}{lb}")).unwrap_or_default();
 
     concat_raw_before_after(
       &self._raw_before,
@@ -184,12 +179,7 @@ impl Select<'_> {
 
   fn concat_offset(&self, query: String, fmts: &fmt::Formatter) -> String {
     let fmt::Formatter { lb, space, .. } = fmts;
-    let sql = if self._offset.is_empty() == false {
-      let start = self._offset;
-      format!("OFFSET{space}{start}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
+    let sql = self._offset.map(|offset| format!("OFFSET{space}{offset}{space}{lb}")).unwrap_or_default();
 
     concat_raw_before_after(
       &self._raw_before,
