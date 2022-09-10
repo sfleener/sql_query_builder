@@ -12,6 +12,9 @@ keywords = ["sql", "query", "postgres"]
 [features]
 postgresql = []
 
+[dependencies]
+ansi_term = "0.12.1"
+
 [package.metadata.docs.rs]
 features = ["postgresql"]
 

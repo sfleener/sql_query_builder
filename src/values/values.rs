@@ -22,7 +22,7 @@ impl Values {
   /// ```
   pub fn as_string(&self) -> String {
     let fmts = fmt::one_line();
-    self.concat(&fmts)
+    self.concat(, &fmts)
   }
 
   /// Prints the current state of the Values into console output in a more ease to read version.
@@ -45,7 +45,7 @@ impl Values {
   /// ```
   pub fn debug(self) -> Self {
     let fmts = fmt::multiline();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{}", fmt::format(self.concat(, &fmts), &fmts));
     self
   }
 
@@ -58,7 +58,7 @@ impl Values {
   /// the difference is that this method prints in one line.
   pub fn print(self) -> Self {
     let fmts = fmt::one_line();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{}", fmt::format(self.concat(, &fmts), &fmts));
     self
   }
 
@@ -151,15 +151,20 @@ impl Values {
 
 impl WithQuery for Values {}
 
-impl std::fmt::Display for Values {
-  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    write!(f, "{}", self.as_string())
+impl std::fmt::Display for Values<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let fmts = fmt::one_line();
+    self.concat(f, &fmts)
   }
 }
 
-impl std::fmt::Debug for Values {
-  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    let fmts = fmt::multiline();
-    write!(f, "{}", fmt::format(self.concat(&fmts), &fmts))
+impl std::fmt::Debug for Values<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let fmts = if f.alternate() {
+      fmt::multiline_color()
+    } else {
+      fmt::multiline()
+    };
+    self.concat(f, &fmts)
   }
 }

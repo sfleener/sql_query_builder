@@ -1,13 +1,15 @@
+use std::fmt::Formatter;
 use crate::{
   behavior::{concat_raw_before_after, Concat, ConcatMethods},
   fmt,
   structure::{Update, UpdateClause},
 };
+use crate::fmt::Format;
 
 impl<'a> ConcatMethods<'a, UpdateClause> for Update<'_> {}
 
 impl Concat for Update<'_> {
-  fn concat(&self, fmts: &fmt::Formatter) -> String {
+  fn concat(&self, fmt: &mut std::fmt::Formatter<'_>, fmts: &fmt::Format) -> String {
     let mut query = "".to_owned();
 
     query = self.concat_raw(query, &fmts, &self._raw);
@@ -61,11 +63,11 @@ impl Concat for Update<'_> {
 }
 
 impl Update<'_> {
-  fn concat_set(&self, query: String, fmts: &fmt::Formatter) -> String {
-    let fmt::Formatter { comma, lb, space, .. } = fmts;
+  fn concat_set(&self, query: String, fmts: &fmt::Format) -> String {
+    let fmt::Format { comma, lb, .. } = fmts;
     let sql = if self._set.is_empty() == false {
       let values = self._set.join(comma);
-      format!("SET{space}{values}{space}{lb}")
+      format!("SET {values} {lb}")
     } else {
       "".to_owned()
     };
@@ -73,11 +75,11 @@ impl Update<'_> {
     concat_raw_before_after(&self._raw_before, &self._raw_after, query, fmts, UpdateClause::Set, sql)
   }
 
-  fn concat_update(&self, query: String, fmts: &fmt::Formatter) -> String {
-    let fmt::Formatter { lb, space, .. } = fmts;
+  fn concat_update(&self, query: String, fmts: &fmt::Format) -> String {
+    let fmt::Format { lb, .. } = fmts;
     let sql = if self._update.is_empty() == false {
       let table_name = self._update;
-      format!("UPDATE{space}{table_name}{space}{lb}")
+      format!("UPDATE {table_name} {lb}")
     } else {
       "".to_owned()
     };

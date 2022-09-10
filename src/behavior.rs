@@ -1,5 +1,7 @@
 use crate::fmt;
 use std::cmp::PartialEq;
+use std::fmt::{Debug, Display, Formatter};
+use crate::fmt::{Joiner};
 
 pub fn push_unique<T: Eq>(list: &mut Vec<T>, value: T) {
   let prev_item = list.iter().find(|&item| *item == value);
@@ -20,24 +22,50 @@ pub fn raw_queries<'a, Clause: PartialEq>(raw_list: &'a Vec<(Clause, String)>, c
 pub trait WithQuery: Concat {}
 
 pub trait Concat {
-  fn concat(&self, fmts: &fmt::Formatter) -> String;
+  fn concat(&self, fmt: &mut std::fmt::Formatter<'_>, fmts: &fmt::Format) -> std::fmt::Result;
+}
+
+pub fn concat_raw_before<Clause: PartialEq>(
+  items_before: &Vec<(Clause, String)>,
+  fmt: &mut std::fmt::Formatter<'_>,
+  fmts: &fmt::Format,
+  clause: &Clause,
+) -> std::fmt::Result {
+  let mut joiner = Joiner::new(fmt, |fmt| write!(fmt, " "));
+  let raw_before = raw_queries(items_before, clause);
+  raw_before.iter().try_for_each(|item| joiner.entry(item))?;
+  joiner.finish();
+
+  let space_before = if raw_before.is_empty() == false { " " } else { "" };
+  write!(fmt, "{space_before}")
+}
+
+pub fn concat_raw_after<Clause: PartialEq>(
+  items_after: &Vec<(Clause, String)>,
+  fmt: &mut std::fmt::Formatter<'_>,
+  fmts: &fmt::Format,
+  clause: &Clause,
+) -> std::fmt::Result {
+  let mut joiner = Joiner::new(fmt, |fmt| write!(fmt, " "));
+  let raw_after = raw_queries(items_after, clause);
+  raw_after.iter().try_for_each(|item| joiner.entry(item))?;
+  joiner.finish();
+
+  let space_after = if raw_after.is_empty() == false { " " } else { "" };
+  write!(fmt, "{space_after}")
 }
 
 pub fn concat_raw_before_after<Clause: PartialEq>(
   items_before: &Vec<(Clause, String)>,
   items_after: &Vec<(Clause, String)>,
-  query: String,
-  fmts: &fmt::Formatter,
+  fmt: &mut std::fmt::Formatter<'_>,
+  fmts: &fmt::Format,
   clause: Clause,
   sql: String,
-) -> String {
-  let fmt::Formatter { space, .. } = fmts;
-  let raw_before = raw_queries(items_before, &clause).join(space);
-  let raw_after = raw_queries(items_after, &clause).join(space);
-  let space_after = if raw_after.is_empty() == false { space } else { "" };
-  let space_before = if raw_before.is_empty() == false { space } else { "" };
-
-  format!("{query}{raw_before}{space_before}{sql}{raw_after}{space_after}")
+) -> std::fmt::Result {
+  concat_raw_before(items_before, fmt, fmts, &clause)?;
+  write!(fmt, "{sql}")?;
+  concat_raw_after(items_after, fmt, fmts, &clause)
 }
 
 pub trait ConcatMethods<'a, Clause: PartialEq> {
@@ -45,30 +73,38 @@ pub trait ConcatMethods<'a, Clause: PartialEq> {
     &self,
     items_raw_before: &Vec<(Clause, String)>,
     items_raw_after: &Vec<(Clause, String)>,
-    query: String,
-    fmts: &fmt::Formatter,
+    fmt: &mut std::fmt::Formatter<'_>,
+    fmts: &fmt::Format,
     clause: Clause,
     items: &Vec<String>,
-  ) -> String {
-    let fmt::Formatter { comma, lb, space, .. } = fmts;
-    let sql = if items.is_empty() == false {
-      let tables = items.join(comma);
-      format!("FROM{space}{tables}{space}{lb}")
-    } else {
-      "".to_owned()
+  ) -> std::fmt::Result {
+    let fmt::Format { comma, lb, .. } = fmts;
+
+    concat_raw_before(items_raw_before, fmt, fmts, &clause)?;
+
+    if items.is_empty() == false {
+      fmts.write_blue(fmt, "FROM ")?;
+
+      let mut joiner = Joiner::new(fmt, |fmt| write!(fmt, "{}", comma));
+      items.iter().try_for_each(|item| joiner.entry(item))?;
+      joiner.finish();
+
+      write!(fmt, " {lb}")?;
     };
 
-    concat_raw_before_after(items_raw_before, items_raw_after, query, fmts, clause, sql)
+    concat_raw_after(items_raw_after, fmt, fmts, &clause)
   }
 
-  fn concat_raw(&self, query: String, fmts: &fmt::Formatter, items: &Vec<String>) -> String {
+  fn concat_raw(&self, fmt: &mut std::fmt::Formatter<'_>, fmts: &fmt::Format, items: &Vec<String>) -> std::fmt::Result {
     if items.is_empty() {
-      return query;
+      return Ok(());
     }
-    let fmt::Formatter { lb, space, .. } = fmts;
-    let raw_sql = items.join(space);
+    let fmt::Format { lb, .. } = fmts;
 
-    format!("{query}{raw_sql}{space}{lb}")
+    let mut joiner = Joiner::new(fmt, |fmt| write!(fmt, " "));
+    items.iter().try_for_each(|item| joiner.entry(item))?;
+
+    write!(fmt, " {lb}")
   }
 
   #[cfg(feature = "postgresql")]
@@ -76,61 +112,77 @@ pub trait ConcatMethods<'a, Clause: PartialEq> {
     &self,
     items_raw_before: &Vec<(Clause, String)>,
     items_raw_after: &Vec<(Clause, String)>,
-    query: String,
-    fmts: &fmt::Formatter,
+    fmt: &mut std::fmt::Formatter<'_>,
+    fmts: &fmt::Format,
     clause: Clause,
     items: &Vec<String>,
-  ) -> String {
-    let fmt::Formatter { lb, space, comma, .. } = fmts;
-    let sql = if items.is_empty() == false {
-      let output_names = items.join(comma);
-      format!("RETURNING{space}{output_names}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
+  ) -> std::fmt::Result {
+    let fmt::Format { lb, comma, .. } = fmts;
 
-    concat_raw_before_after(items_raw_before, items_raw_after, query, fmts, clause, sql)
+    concat_raw_before(items_raw_before, fmt, fmts, &clause)?;
+
+    if items.is_empty() == false {
+      fmts.write_blue(fmt, "RETURNING ")?;
+
+      let mut joiner = Joiner::new(fmt, |fmt| write!(fmt, "{}", comma));
+      items.iter().try_for_each(|item| joiner.entry(item))?;
+      joiner.finish();
+
+      write!(fmt, " {lb}")?;
+    }
+
+    concat_raw_after(items_raw_after, fmt, fmts, &clause)
   }
 
   fn concat_values(
     &self,
     items_raw_before: &Vec<(Clause, String)>,
     items_raw_after: &Vec<(Clause, String)>,
-    query: String,
-    fmts: &fmt::Formatter,
+    fmt: &mut std::fmt::Formatter<'_>,
+    fmts: &fmt::Format,
     clause: Clause,
     items: &Vec<String>,
-  ) -> String {
-    let fmt::Formatter { comma, lb, space, .. } = fmts;
-    let sql = if items.is_empty() == false {
+  ) -> std::fmt::Result {
+    let fmt::Format { comma, lb, .. } = fmts;
+
+    concat_raw_before(items_raw_before, fmt, fmts, &clause)?;
+
+    if items.is_empty() == false {
       let sep = format!("{comma}{lb}");
       let values = items.join(&sep);
-      format!("VALUES{space}{lb}{values}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
+      fmts.write_blue(fmt, "VALUES")?;
+      write!(fmt, " {lb}{values} {lb}")?;
+    }
 
-    concat_raw_before_after(items_raw_before, items_raw_after, query, fmts, clause, sql)
+    concat_raw_after(items_raw_after, fmt, fmts, &clause)
   }
 
   fn concat_where(
     &self,
     items_raw_before: &Vec<(Clause, String)>,
     items_raw_after: &Vec<(Clause, String)>,
-    query: String,
-    fmts: &fmt::Formatter,
+    fmt: &mut std::fmt::Formatter<'_>,
+    fmts: &fmt::Format,
     clause: Clause,
     items: &Vec<String>,
-  ) -> String {
-    let fmt::Formatter { lb, space, indent, .. } = fmts;
-    let sql = if items.is_empty() == false {
-      let conditions = items.join(&format!("{space}{lb}{indent}AND{space}"));
-      format!("WHERE{space}{conditions}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
+  ) -> std::fmt::Result {
+    let fmt::Format { lb, indent, colorize, .. } = fmts;
+    concat_raw_before(items_raw_before, fmt, fmts, &clause)?;
 
-    concat_raw_before_after(items_raw_before, items_raw_after, query, fmts, clause, sql)
+    if items.is_empty() == false {
+      fmts.write_blue(fmt, "WHERE ")?;
+
+      let mut joiner = Joiner::new(fmt, |fmt| {
+        write!(fmt, " {lb}{indent}")?;
+        fmts.write_blue(fmt, "AND ")
+      });
+      items.iter().try_for_each(|item| joiner.entry(item))?;
+      joiner.finish();
+
+      write!(fmt, " {lb}")?;
+    }
+
+    concat_raw_after(items_raw_after, fmt, fmts, &clause)
   }
 
   #[cfg(feature = "postgresql")]
@@ -138,40 +190,42 @@ pub trait ConcatMethods<'a, Clause: PartialEq> {
     &self,
     items_raw_before: &Vec<(Clause, String)>,
     items_raw_after: &Vec<(Clause, String)>,
-    query: String,
-    fmts: &fmt::Formatter,
+    fmt: &mut std::fmt::Formatter<'_>,
+    fmts: &fmt::Format,
     clause: Clause,
     items: &Vec<(&'a str, std::sync::Arc<dyn WithQuery>)>,
-  ) -> String {
-    let fmt::Formatter {
+  ) -> std::fmt::Result {
+    let fmt::Format {
       comma,
       lb,
       indent,
-      space,
       ..
     } = fmts;
-    let sql = if items.is_empty() == false {
-      let with = items.iter().fold("".to_owned(), |acc, item| {
-        let (name, query) = item;
+
+    concat_raw_before(items_raw_before, fmt, fmts, &clause)?;
+
+    if !items.is_empty() {
+      fmts.write_blue(fmt, "WITH")?;
+      write!(fmt, " {lb}")?;
+
+      let with = items.iter().try_for_each(|(name, query)| {
         let inner_lb = format!("{lb}{indent}");
-        let inner_fmts = fmt::Formatter {
+        let inner_fmts = fmt::Format {
           comma,
           lb: inner_lb.as_str(),
           indent,
-          space,
           ..*fmts
         };
-        let query_string = query.concat(&inner_fmts);
+        write!(fmt, "{name} ")?;
+        fmts.write_blue(fmt, "AS")?;
+        write!(fmt, " ({lb}{indent}")?;
+        query.concat(fmt, &inner_fmts)?;
+        write!(fmt, "{lb}){comma}{lb}")
+      })?;
 
-        format!("{acc}{name}{space}AS{space}({lb}{indent}{query_string}{lb}){comma}{lb}")
-      });
-      let with = &with[..with.len() - comma.len() - lb.len()];
+      write!(fmt, " {lb}")?;
+    }
 
-      format!("WITH{space}{lb}{with}{space}{lb}")
-    } else {
-      "".to_owned()
-    };
-
-    concat_raw_before_after(items_raw_before, items_raw_after, query, fmts, clause, sql)
+    concat_raw_after(items_raw_after, fmt, fmts, &clause)
   }
 }

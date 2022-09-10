@@ -40,7 +40,7 @@ impl<'a> Update<'a> {
   /// ```
   pub fn as_string(&self) -> String {
     let fmts = fmt::one_line();
-    self.concat(&fmts)
+    self.concat(, &fmts)
   }
 
   /// Prints the current state of the Update into console output in a more ease to read version.
@@ -66,7 +66,7 @@ impl<'a> Update<'a> {
   /// ```
   pub fn debug(self) -> Self {
     let fmts = fmt::multiline();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{}", fmt::format(self.concat(, &fmts), &fmts));
     self
   }
 
@@ -86,7 +86,7 @@ impl<'a> Update<'a> {
   /// the difference is that this method prints in one line.
   pub fn print(self) -> Self {
     let fmts = fmt::one_line();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{}", fmt::format(self.concat(, &fmts), &fmts));
     self
   }
 
@@ -250,13 +250,18 @@ impl WithQuery for Update<'_> {}
 
 impl std::fmt::Display for Update<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.as_string())
+    let fmts = fmt::one_line();
+    self.concat(f, &fmts)
   }
 }
 
 impl std::fmt::Debug for Update<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let fmts = fmt::multiline();
-    write!(f, "{}", fmt::format(self.concat(&fmts), &fmts))
+    let fmts = if f.alternate() {
+      fmt::multiline_color()
+    } else {
+      fmt::multiline()
+    };
+    self.concat(f, &fmts)
   }
 }

@@ -38,8 +38,7 @@ impl<'a> Delete<'a> {
   /// DELETE FROM users WHERE id = $1
   /// ```
   pub fn as_string(&self) -> String {
-    let fmts = fmt::one_line();
-    self.concat(&fmts)
+    self.to_string()
   }
 
   /// Prints the current state of the [Delete] into console output in a more ease to read version.
@@ -64,8 +63,7 @@ impl<'a> Delete<'a> {
   /// WHERE login = 'foo'
   /// ```
   pub fn debug(self) -> Self {
-    let fmts = fmt::multiline();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{:?}", self);
     self
   }
 
@@ -95,8 +93,7 @@ impl<'a> Delete<'a> {
   /// Prints the current state of the [Delete] into console output similar to debug method,
   /// the difference is that this method prints in one line.
   pub fn print(self) -> Self {
-    let fmts = fmt::one_line();
-    println!("{}", fmt::format(self.concat(&fmts), &fmts));
+    println!("{}", self);
     self
   }
 
@@ -230,13 +227,18 @@ impl WithQuery for Delete<'_> {}
 
 impl std::fmt::Display for Delete<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.as_string())
+    let fmts = fmt::one_line();
+    self.concat(f, &fmts)
   }
 }
 
 impl std::fmt::Debug for Delete<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let fmts = fmt::multiline();
-    write!(f, "{}", fmt::format(self.concat(&fmts), &fmts))
+    let fmts = if f.alternate() {
+      fmt::multiline_color()
+    } else {
+      fmt::multiline()
+    };
+    self.concat(f, &fmts)
   }
 }

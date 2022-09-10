@@ -1,13 +1,15 @@
+use std::fmt::Formatter;
 use crate::{
   behavior::{Concat, ConcatMethods},
   fmt,
   structure::{Values, ValuesClause},
 };
+use crate::fmt::Format;
 
 impl<'a> ConcatMethods<'a, ValuesClause> for Values {}
 
 impl Concat for Values {
-  fn concat(&self, fmts: &fmt::Formatter) -> String {
+  fn concat(&self, fmt: &mut std::fmt::Formatter<'_>, fmts: &fmt::Format) -> String {
     let mut query = "".to_owned();
 
     query = self.concat_raw(query, &fmts, &self._raw);
